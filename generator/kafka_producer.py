@@ -36,13 +36,21 @@ def stream_events_to_kafka(
     """Streams generated auth events into Kafka topic."""
     producer = get_kafka_producer(bootstrap_servers)
     if not producer:
-        logger.warning("Kafka is not reachable. Operating in dry-run mode.")
-        return 0, 0.0
+        raise RuntimeError("Kafka is unreachable; producer does not report dry-run results as a live stream.")
 
     generator = FinTechDataGenerator()
     generator.generate_dimensions(num_accounts=1000, num_cards=2000, num_merchants=200, num_devices=500)
     logger.info(f"Generating {num_events} payment auth events with labeled fraud rings...")
-    events = generator.generate_events(num_events=num_events)
+    # generate_events(num_events) adds its fraud-ring fixtures on top of the
+    # requested normal events. Include those fixtures within the requested
+    # total so the benchmark producer and both sinks handle the same row count.
+    fraud_fixtures = generator.generate_events(num_events=0)
+    fixture_count = len(fraud_fixtures)
+    events = generator.generate_events(num_events=max(0, num_events - fixture_count))
+    if len(events) > num_events:
+        # Keep small smoke tests exact when the fixed fraud fixtures exceed
+        # their requested row count.
+        events = events[:num_events]
 
     logger.info(f"Publishing to Kafka topic '{topic}' (target rate: {target_rate or 'unthrottled'})...")
     start_time = time.perf_counter()
@@ -66,6 +74,9 @@ def stream_events_to_kafka(
             "raw_payload": event.raw_payload,
             "is_fraud": event.is_fraud,
             "fraud_pattern": event.fraud_pattern,
+            # Propagated only through the benchmark topic; sinks ignore this
+            # field when writing the database row.
+            "_benchmark_sent_at_ms": time.time() * 1000,
         }
         # Partition by merchant_id or card_id
         producer.send(topic, key=str(event.card_id), value=event_dict)
