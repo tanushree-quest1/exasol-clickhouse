@@ -1,14 +1,35 @@
 # PayLens: Exasol vs ClickHouse Comparative Benchmark & Audit
 
-A comprehensive comparative benchmark and architectural audit evaluating **ClickHouse** and **Exasol** for FinTech card payments, mutable ledgers, star schema analytics, and in-database machine learning fraud scoring.
+A preliminary comparative benchmark and documentation audit evaluating **ClickHouse** and **Exasol** for FinTech card payments, mutable ledgers, star schema analytics, and fraud scoring.
 
 ---
 
 ## Deliverables & Documentation
 
-* **Executive Summary & Complete Findings:** [`results/final_report.md`](results/final_report.md)
-* **Official Specs & Capabilities Matrix:** [`audit/spec_matrix_and_capabilities.md`](audit/spec_matrix_and_capabilities.md)
-* **Usability & Developer Ergonomics Scorecard:** [`audit/usability_scorecard.md`](audit/usability_scorecard.md)
+* **Coverage checklist (measured vs. missing):** [`audit/coverage_checklist.md`](audit/coverage_checklist.md)
+* **Current comparative results:** [`results/comparative_analysis.md`](results/comparative_analysis.md)
+* **Results UI:** [`results/dashboard.html`](results/dashboard.html) (open in a browser)
+* **Documentation comparison:** [`audit/documentation_comparison.md`](audit/documentation_comparison.md)
+* **Feature matrix (draft; verify every claim):** [`audit/spec_matrix_and_capabilities.md`](audit/spec_matrix_and_capabilities.md)
+* **Usability scorecard (opinion-only draft):** [`audit/usability_scorecard.md`](audit/usability_scorecard.md)
+* **Final MD report:** [`results/final_report.md`](results/final_report.md)
+
+## Requested metrics: measured vs. outstanding
+
+| Requested comparison area | Current evidence |
+|---|---|
+| Bulk ingestion | Live paired measurements at 100k and 1M events; no independent repeat series or batch-size sweep. |
+| FinTech queries | Live p50/p95 for point lookup, rollup, five-table join, and JSON extraction at both scales; the current harness compares returned values as well as row counts. Older artifacts may contain row-count checks only. |
+| Partitioning / pruning | Live date filter/profile probe completed on 1,000,047 rows. ClickHouse selected 2/3 parts and 63/125 granules but no full partition pruning; Exasol profile showed zonemap scan evidence. |
+| Indexing and automatic behavior | Live probe completed. Exasol join profile showed local/global index paths. ClickHouse Bloom index materialized, but the tested card lookup still read 1M rows and the scratch index selected all 123 granules. |
+| TTL / retention | Forced scratch cleanup is measured; a natural ClickHouse background-TTL vs polled Exasol DELETE watcher is implemented and runs with `--all`, but needs a live result. |
+| Ledger mutations | Live 10,000-row scratch probe passed row-count checks for ClickHouse `ALTER UPDATE` (6.357 ms), `ReplacingMergeTree` append/read, and Exasol `UPDATE` (13.780 ms). |
+| Storage/compression | Live system-table snapshots; size accounting differs across engines and must be interpreted cautiously. |
+| Kafka | Paired benchmark harness added. It starts isolated consumers for both engines, publishes one unique topic, records sink throughput, end-to-end p50/p95/p99, and row-count parity. Repeated runs show Exasol ahead on this unthrottled client path; use producer-rate and batch-size sweeps before making an engine-wide streaming claim. |
+| ML/UDF | `--udf` compares the checked-in LogisticFraudScorer artifact; `--xgboost` trains a deterministic model on generated fraud labels and compares exported-tree scoring through ClickHouse SQL and Exasol Python UDFs. Both need live runs for measurements. |
+| Documentation gaps and ease of use | Scoped vendor source comparison exists; no controlled task-based documentation/usability study has been conducted. |
+
+**Conclusion:** The repository has live evidence for ingestion, the four query workloads, storage snapshots, date-filter and index behavior, forced and natural TTL cleanup, synthetic ledger mutations, paired Kafka ingestion, and logistic/XGBoost UDF execution. Logistic scoring matches its artifact after normalizing the measured Exasol timestamp offset. XGBoost engines match each other, but their tree outputs differ from the XGBoost library reference by up to 0.016875, so model parity remains open. These are local single-node observations. Task-based ease of use requires human participants and is documented in the study protocol. See the [comparative analysis](results/comparative_analysis.md), [documentation comparison](audit/documentation_comparison.md), and [usability study protocol](audit/usability_study.md).
 
 ---
 
@@ -16,13 +37,13 @@ A comprehensive comparative benchmark and architectural audit evaluating **Click
 
 ```
 exasol-clickhouse/
-├── docker-compose.yml            # ClickHouse, Exasol Docker DB, Kafka (KRaft)
+├── docker-compose.yml            # ClickHouse and Kafka (KRaft); Exasol runs via Exasol Personal
 ├── pyproject.toml                # Project metadata & dependencies
 ├── config/
 │   └── settings.yaml             # Centralized scale knobs & connection configs
 ├── schema/
 │   ├── clickhouse.sql            # ClickHouse DDL (MergeTree, Partitioning, Bloom Filter, TTL)
-│   └── exasol.sql                # Exasol DDL (Distribute by, Partition by, Auto-indexing)
+│   └── exasol.sql                # Exasol DDL (distribution and partitioning)
 ├── generator/
 │   ├── models.py                 # Fast entity models (Accounts, Cards, Events, Ledger)
 │   ├── fraud_patterns.py         # Ground-truth fraud rings (Shared device, Impossible travel, Collusion)
@@ -34,10 +55,14 @@ exasol-clickhouse/
 ├── benchmark/
 │   ├── insert_bench.py           # Bulk load & streaming ingestion throughput
 │   ├── query_bench.py            # Point lookup, aggregation, 5-table join, JSON extraction
-│   ├── storage_and_partition_bench.py # Disk usage, compression ratio, partition pruning, TTL
-│   ├── update_bench.py           # Ledger state transitions (AUTH -> SETTLED) & schema alterations
-│   ├── indexing_bench.py         # Manual sort keys vs Automatic self-tuning indexing
-│   └── udf_bench.py              # In-database ML scoring (Vectorized vs Python container)
+│   ├── physical_design_bench.py  # Live storage, pruning, index and TTL probes
+│   ├── storage_and_partition_bench.py # Compatibility entry point for physical probes
+│   ├── update_bench.py           # Live mutation probes on scratch tables
+│   ├── natural_ttl_bench.py      # Background TTL vs polled Exasol DELETE watcher
+│   ├── kafka_bench.py            # Paired Kafka sink benchmark
+│   ├── indexing_bench.py         # Compatibility entry point for physical probes
+│   ├── udf_bench.py              # Checked-in logistic artifact SQL/Python UDF comparison
+│   └── xgboost_udf_bench.py      # Generated XGBoost SQL/Python UDF comparison
 ├── udf/
 │   ├── train_model.py            # Trains fraud classifier on ground-truth dataset
 │   ├── ch_executable_score.py    # ClickHouse executable UDF script
@@ -54,26 +79,14 @@ exasol-clickhouse/
 
 ---
 
-## How to Run the Benchmarks
+## Run the Live Baseline
 
-All benchmark scripts are standalone and include built-in simulation profiles when running without live Docker containers.
+The complete runner performs paired bulk-ingest/query measurements, physical-design and mutation probes, a Kafka sink comparison, a short natural-retention observation, and both the saved logistic-model and generated XGBoost UDF comparisons. Kafka, logistic UDF, XGBoost UDF, and natural-retention stages can be selected individually, or enabled together by `--all`. Scratch probes use isolated tables; the baseline load resets the PayLens benchmark tables. It requires Python 3.10 or newer, Docker, and a running Exasol Personal instance. The Exasol Python SLC must be configured for both UDF stages.
 
 ```bash
-# 1. Bulk Ingest Benchmark
-python3 benchmark/insert_bench.py --rows 100000 --batch-size 10000
-
-# 2. Query Speed & 5-Table Join Benchmark
-python3 benchmark/query_bench.py --iterations 5
-
-# 3. Storage, Compression, Partition Pruning & TTL
-python3 benchmark/storage_and_partition_bench.py
-
-# 4. Ledger Updates & Online Schema Alterations
-python3 benchmark/update_bench.py
-
-# 5. Indexing Comparison (Manual vs Automatic)
-python3 benchmark/indexing_bench.py
-
-# 6. In-Database ML Fraud Scoring
-python3 benchmark/udf_bench.py --rows 50000
+./run_experiment.sh --all --rows 1000000 --batch-size 10000 --iterations 5
 ```
+
+The runner reads the sys password from Exasol Personal's default deployment secrets file. Set `EXASOL_DEPLOYMENT_DIR` for a non-default deployment, or `EXASOL_PASSWORD` to override. A full `--all` run asks for `RESET` because it clears and reloads the benchmark tables. Results go to a timestamped directory under `results/runs/`. Use `--features-only --all` to reuse existing data while running physical-design, mutation, Kafka, both model UDFs, and natural TTL stages; use `--queries-only` for query timings alone. The full reset rebuilds ClickHouse `auth_events` with day partitions and `ORDER BY (card_id, event_time)`; query-only and feature-only runs preserve the existing schema and data. Query benchmarks compare returned values as well as row counts. The TTL watcher reports cleanup lag after expiry and records the table TTL setting. The full run sweeps Kafka at 2k, 5k, and 8k rows/s with batches of 500, 1,000, and 5,000 (10k rows per scenario); override these using `KAFKA_ROWS`, `KAFKA_RATES`, and `KAFKA_BATCH_SIZES`. The checked-in model is logistic; the XGBoost stage trains and records a separate model artifact in that run folder and reports per-row/tree routing diagnostics for the largest library-score errors. UDF stages require a usable Exasol Python SLC with NumPy and pandas for the vectorized SET-script comparison; on macOS, XGBoost training also requires the OpenMP runtime (`libomp`). If either stage fails, its JSON records that no metrics were produced and the runner continues to the next stage. No benchmark command falls back to simulated timings. Ease-of-use tasks are a separate human study described in `audit/usability_study.md`.
+
+Event timestamps use UTC throughout the loaders: timezone-naive generated timestamps are interpreted as UTC, and offset-aware timestamps are converted to UTC before loading. Rerun the baseline after this change to reload existing rows; feature-only runs reuse existing data and do not repair timestamps already stored in either database.

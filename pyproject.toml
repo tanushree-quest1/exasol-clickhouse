@@ -7,10 +7,10 @@ name = "paylens-benchmark"
 version = "0.1.0"
 description = "Comparative Benchmark and Audit: Exasol vs ClickHouse for FinTech Analytics"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "clickhouse-connect>=0.7.0",
-    "pyexasol>=0.26.0",
+    "pyexasol>=3.0.0,<4",
     "kafka-python-ng>=2.2.2",
     "pydantic>=2.5.0",
     "pyyaml>=6.0.1",
@@ -27,3 +27,12 @@ dependencies = [
 dev = [
     "pytest>=7.4.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["generator*", "benchmark*", "consumers*", "udf*"]
+exclude = ["tests*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+udf = ["model_artifact/*.json"]
