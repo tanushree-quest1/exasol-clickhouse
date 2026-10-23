@@ -1,8 +1,8 @@
 -- =====================================================================
 -- ClickHouse DDL for PayLens FinTech Workload
 -- Demonstrates:
---   1. Partitioning by month: PARTITION BY toYYYYMM(event_time)
---   2. Explicit sparse primary key: ORDER BY (merchant_id, event_time, card_id)
+--   1. Partitioning by event date: PARTITION BY event_date
+--   2. Explicit sparse primary key: ORDER BY (card_id, event_time)
 --   3. Data skipping index: Bloom filter on card_id
 --   4. Declarative TTL: Automated row deletion after 90 days
 --   5. ReplacingMergeTree: Idiomatic ClickHouse mutable ledger state
@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS paylens.auth_events
     INDEX idx_card_bloom card_id TYPE bloom_filter(0.01) GRANULARITY 4
 )
 ENGINE = MergeTree()
-PARTITION BY toYYYYMM(event_time)
-ORDER BY (merchant_id, event_time, card_id)
+PARTITION BY event_date
+ORDER BY (card_id, event_time)
 TTL event_time + INTERVAL 90 DAY DELETE;
 
 -- ---------------------------------------------------------------------
