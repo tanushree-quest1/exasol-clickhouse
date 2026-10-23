@@ -1,0 +1,4 @@
+{
+  "status": "legacy_placeholder_not_valid",
+  "message": "Former hard-coded sizes and pruning percentages removed. Run benchmark/physical_design_bench.py for live probes."
+}

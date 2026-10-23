@@ -1,0 +1,16 @@
+{
+  "batch_size": 1000,
+  "total_rows": 5000,
+  "clickhouse": {
+    "total_time_sec": 0.035,
+    "throughput_rows_per_sec": 141667.3,
+    "batch_p50_ms": 7.14,
+    "batch_p95_ms": 7.29
+  },
+  "exasol": {
+    "total_time_sec": 0.051,
+    "throughput_rows_per_sec": 97724.1,
+    "batch_p50_ms": 10.23,
+    "batch_p95_ms": 10.24
+  }
+}

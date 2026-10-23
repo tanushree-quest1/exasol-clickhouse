@@ -1,0 +1,4 @@
+{
+  "status": "legacy_placeholder_not_valid",
+  "message": "Former simulated latencies removed. A live scratch-table benchmark is implemented in benchmark/update_bench.py; run it to collect fresh metrics."
+}

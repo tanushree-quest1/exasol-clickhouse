@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PayLens | Database Comparison</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2d; --line:#27334b; --text:#eef3ff; --muted:#a4b1c8; --blue:#4ea1ff; --teal:#43d9bd; --amber:#f3bd62; }
+    * { box-sizing:border-box }
+    body { margin:0; font:15px/1.5 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:radial-gradient(ellipse at top,#172443 0,#0b1020 55%); color:var(--text) }
+    main { max-width:1180px; margin:auto; padding:42px 24px 72px }
+    .eyebrow { color:var(--teal); text-transform:uppercase; letter-spacing:.15em; font-size:12px; font-weight:700 }
+    h1 { font-size:clamp(32px,5vw,56px); line-height:1.05; margin:12px 0 }
+    h2 { margin:0 0 18px; font-size:22px }
+    p { color:var(--muted) }
+    .notice { border:1px solid #77552a; background:#2c2112; color:#ffdfaa; padding:16px 18px; border-radius:14px; margin:26px 0 }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:24px 0 }
+    button { color:var(--text); background:var(--panel); border:1px solid var(--line); padding:10px 14px; border-radius:9px; cursor:pointer; font:inherit }
+    button[aria-pressed="true"] { background:#17345b; border-color:var(--blue) }
+    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:18px 0 30px }
+    .card,.section { background:linear-gradient(145deg,#141e33,#101729); border:1px solid var(--line); border-radius:16px; padding:20px }
+    .label { color:var(--muted); font-size:13px }
+    .value { font-size:26px; font-weight:700; margin-top:7px; font-variant-numeric:tabular-nums }
+    .sub { color:var(--muted); font-size:12px; margin-top:4px }
+    .section { margin:18px 0 24px; overflow:hidden }
+    .table-wrap { overflow-x:auto }
+    table { border-collapse:collapse; width:100%; min-width:720px; font-variant-numeric:tabular-nums }
+    th,td { text-align:left; padding:12px 10px; border-bottom:1px solid var(--line) }
+    th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em }
+    td.num { text-align:right }
+    .winner { color:var(--teal); font-weight:700 }
+    .bars { display:grid; gap:18px }
+    .barrow { display:grid; grid-template-columns:185px 1fr; align-items:center; gap:14px }
+    .barlabel { font-size:13px; color:var(--muted) }
+    .pairbars { display:grid; gap:4px }
+    .track { height:9px; background:#0b1020; border-radius:6px; overflow:hidden; border:1px solid var(--line) }
+    .segment { height:100%; min-width:2px; transition:width .3s ease; border-radius:6px }
+    .ch { background:var(--blue) }.exa { background:var(--teal) }
+    .legend { display:flex; gap:18px; color:var(--muted); font-size:13px; margin:0 0 18px }
+    .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px }
+    .coverage { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px }
+    .gap { border:1px solid var(--line); background:#0d1424; padding:14px; border-radius:11px }
+    .gap strong { display:block; margin-bottom:5px }
+    .gap span { color:var(--muted); font-size:13px }
+    a { color:#83bdff }
+    footer { color:var(--muted); font-size:12px; margin-top:24px }
+    @media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.coverage{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){main{padding:28px 15px}.grid,.coverage{grid-template-columns:1fr}.barrow{grid-template-columns:1fr;gap:6px}.value{font-size:23px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">PayLens · FinTech workload</div>
+  <h1>ClickHouse vs Exasol</h1>
+  <p>Live local baseline · 100k and 1M generated authorization events · warm query medians</p>
+  <div class="notice"><strong>Coverage is partial.</strong> Kafka and natural TTL have live results. Logistic UDF inputs now match after normalizing Exasol's observed +05:30 timestamp offset. XGBoost engines agree with each other, but the scores differ from the XGBoost library reference by up to 0.016875, so model parity remains open. ClickHouse showed limited date pruning and the tested Bloom index did not reduce granules; Exasol join profiles showed local/global index use. Task-based usability needs participants. Exasol ran as single-node Nano.</div>
+  <div class="toolbar" role="group" aria-label="Dataset scale">
+    <span class="label">Dataset</span>
+    <button id="scale100k" aria-pressed="false">100k events</button>
+    <button id="scale1m" aria-pressed="true">1M events</button>
+  </div>
+  <section class="grid" aria-label="Ingestion summary">
+    <article class="card"><div class="label">Actual loaded events</div><div class="value" id="events">—</div><div class="sub">Includes injected fraud patterns</div></article>
+    <article class="card"><div class="label">ClickHouse ingest</div><div class="value" id="chIngest">—</div><div class="sub">rows per second</div></article>
+    <article class="card"><div class="label">Exasol ingest</div><div class="value" id="exaIngest">—</div><div class="sub">rows per second</div></article>
+    <article class="card"><div class="label">Ingest lead</div><div class="value" id="ingestLead">—</div><div class="sub" id="ingestWinner">—</div></article>
+  </section>
+  <section class="section">
+    <h2>Supplemental live probes · run 20261022T080633</h2>
+    <div class="table-wrap"><table><thead><tr><th>Metric</th><th class="num">ClickHouse</th><th class="num">Exasol</th><th>Notes</th></tr></thead><tbody>
+      <tr><td>Reported raw size</td><td class="num">203.19 MB</td><td class="num">232.80 MB</td><td>Different storage accounting semantics</td></tr>
+      <tr><td>Reported compressed / memory size</td><td class="num">41.77 MB</td><td class="num">41.11 MB</td><td>ClickHouse disk parts vs Exasol in-memory object size</td></tr>
+      <tr><td>Indicative ratio</td><td class="num">4.865×</td><td class="num">5.663×</td><td>Not directly comparable</td></tr>
+      <tr><td>Date filter elapsed</td><td class="num">6.707 ms</td><td class="num">3.110 ms</td><td>ClickHouse read 500,047 rows; Exasol profile showed zonemap scan. Probe counters differ.</td></tr>
+      <tr><td>Card lookup (`card_id=1533`)</td><td class="num">3.069 ms</td><td class="num">—</td><td>ClickHouse read 1,000,000 rows; Bloom skip index selected 124/125 granules.</td></tr>
+      <tr><td>Bloom index materialization</td><td class="num">14.334 ms</td><td class="num">—</td><td>1M-row scratch table; post-materialization EXPLAIN still selected all 123 granules.</td></tr>
+      <tr><td>Exasol join index evidence</td><td class="num">—</td><td class="num">94.397 ms / 88.397 ms</td><td>First / warm join; profiles show local CARD_ID and global ACCOUNT_ID, MERCHANT_ID, DEVICE_ID indexes.</td></tr>
+      <tr><td>TTL scratch cleanup</td><td class="num">4.139 ms</td><td class="num">12.680 ms</td><td>Forced TTL merge vs explicit DELETE + COMMIT; one expired row removed each</td></tr>
+      <tr><td>10k synthetic mutation</td><td class="num">6.357 ms</td><td class="num">13.780 ms</td><td>ALTER UPDATE vs UPDATE; expected row counts on both. ReplacingMergeTree append: 57.037 ms + 2.792 ms FINAL read</td></tr>
+    </tbody></table></div>
+  </section>
+  <section class="section">
+    <h2>Earlier Kafka and prerequisite run · 20261022T090519</h2>
+    <div class="table-wrap"><table><thead><tr><th>Kafka sink metric</th><th class="num">ClickHouse</th><th class="num">Exasol</th><th>Notes</th></tr></thead><tbody>
+      <tr><td>Rows persisted / sink throughput</td><td class="num">10,000 / 9,614 rows/s</td><td class="num">10,000 / 10,797 rows/s</td><td>Counts match; single 10k-row run</td></tr>
+      <tr><td>End-to-end latency p50 / p95 / p99</td><td class="num">1,065.830 / 1,292.880 / 1,304.109 ms</td><td class="num">833.692 / 1,181.621 / 1,192.850 ms</td><td>Producer sent exactly 10,000 rows; timing is enqueue to sink batch completion</td></tr>
+      <tr><td>Natural TTL watcher</td><td class="num">Invalid timing</td><td class="num">Invalid timing</td><td>Historical run; corrected measurement is shown below.</td></tr>
+      <tr><td>UDF scoring</td><td class="num">Not measured</td><td class="num">Not measured</td><td>Historical run before the Python SLC and libomp prerequisites were installed.</td></tr>
+    </tbody></table></div>
+  </section>
+  <section class="section">
+    <h2>Latest completed feature measurements</h2>
+    <div class="table-wrap"><table><thead><tr><th>Probe</th><th class="num">ClickHouse</th><th class="num">Exasol</th><th>Correctness and limits</th></tr></thead><tbody>
+      <tr><td>Kafka sink throughput · 10k rows</td><td class="num">8,652 rows/s</td><td class="num">10,195 rows/s</td><td>10,000 rows persisted in each; one local run</td></tr>
+      <tr><td>Kafka end-to-end p50</td><td class="num">1,081.415 ms</td><td class="num">912.061 ms</td><td>p95/p99: 1,212.077/1,234.162 ms vs 1,035.246/1,054.484 ms</td></tr>
+      <tr><td>Natural TTL cleanup observed</td><td class="num">39,462 ms</td><td class="num">38,427 ms</td><td>Eight expired rows removed and eight fresh rows retained in each; one synthetic run</td></tr>
+      <tr><td>Logistic UDF · 50k rows p50</td><td class="num">49.995 ms</td><td class="num">253.177 ms</td><td>Feature vectors match after subtracting measured +05:30 Exasol timestamp offset; both match artifact</td></tr>
+      <tr><td>XGBoost UDF · 50k rows p50</td><td class="num">57.711 ms</td><td class="num">549.302 ms</td><td>Engine outputs match each other; library-reference parity differs by up to 0.016875</td></tr>
+    </tbody></table></div>
+  </section>
+  <section class="section">
+    <h2>Query latency · p50</h2>
+    <div class="legend"><span><i class="dot ch"></i>ClickHouse</span><span><i class="dot exa"></i>Exasol</span><span>Shorter bar means lower latency</span></div>
+    <div id="bars" class="bars"></div>
+  </section>
+  <section class="section">
+    <h2>Comparison details</h2>
+    <div class="table-wrap"><table><thead><tr><th>Query</th><th class="num">ClickHouse p50</th><th class="num">Exasol p50</th><th class="num">ClickHouse p95</th><th class="num">Exasol p95</th><th>Faster</th><th>Rows match</th></tr></thead><tbody id="queryRows"></tbody></table></div>
+  </section>
+  <section class="section">
+    <h2>Requested metrics still needing experiments</h2>
+    <div class="coverage">
+      <div class="gap"><strong>Partition pruning · measured, limited</strong><span>ClickHouse date filter selected 2/3 parts and 63/125 granules, but Partition index kept 3/3 parts; Exasol showed zonemap scan evidence.</span></div>
+      <div class="gap"><strong>Index behavior · measured for tested probes</strong><span>Exasol join profiles show local/global index paths; ClickHouse Bloom index did not prune granules for this card value.</span></div>
+      <div class="gap"><strong>TTL / retention · measured once</strong><span>Natural cleanup observed at 39.462 s in ClickHouse and 38.427 s in Exasol; eight fresh rows remained in both.</span></div>
+      <div class="gap"><strong>Ledger mutations · measured</strong><span>10,000 scratch rows reached expected counts; transaction isolation and real ledger invariants remain open.</span></div>
+      <div class="gap"><strong>Storage / compression · measured</strong><span>Live snapshots captured; ClickHouse disk and Exasol memory semantics differ.</span></div>
+      <div class="gap"><strong>Kafka / model / usability</strong><span>Kafka ran with matching 10k row counts. Logistic parity passes after timestamp normalization; XGBoost matches across engines but not the library reference. Usability participants are still needed.</span></div>
+    </div>
+  </section>
+  <p>Interpretation: client-observed query timings on this local setup, not isolated server CPU time. Equal result row counts do not prove equal result values.</p>
+  <footer>Data: <a href="runs/20261021T142638/insert_benchmark_results.json">100k ingest</a> · <a href="runs/20261021T144741/query_benchmark_results.json">100k queries</a> · <a href="runs/20261021T150455/insert_benchmark_results.json">1M ingest</a> · <a href="runs/20261021T150455/query_benchmark_results.json">1M queries</a> · <a href="runs/20261022T080633/physical_design_results.json">physical-design probes</a> · <a href="runs/20261022T093500/kafka_benchmark_results.json">latest Kafka</a> · <a href="runs/20261022T094112/natural_ttl_results.json">natural TTL</a> · <a href="runs/20261022T094533/udf_benchmark_results.json">logistic UDF</a> · <a href="runs/20261022T094533/xgboost_udf_results.json">XGBoost UDF</a><br>See <a href="comparative_analysis.md">comparative analysis</a> and <a href="../audit/documentation_comparison.md">documentation comparison</a>. Reviewed 2026-10-22.</footer>
+</main>
+<script>
+const data = {
+  "100k": {
+    events: 100047, chIngest: 97278.8, exaIngest: 69118.7,
+    queries: [
+      {name:"Q1 Card velocity",ch:4.75,exa:3.60,ch95:5.28,exa95:4.15,match:true},
+      {name:"Q2 Merchant rollup",ch:6.53,exa:8.85,ch95:7.50,exa95:9.06,match:true},
+      {name:"Q3 Five-table fraud join",ch:17.32,exa:66.95,ch95:21.55,exa95:75.49,match:true},
+      {name:"Q4 JSON extraction",ch:10.34,exa:27.77,ch95:11.57,exa95:28.45,match:true}
+    ]
+  },
+  "1m": {
+    events: 1000047, chIngest: 105420.6, exaIngest: 87558.6,
+    queries: [
+      {name:"Q1 Card velocity",ch:8.34,exa:3.87,ch95:9.11,exa95:4.05,match:true},
+      {name:"Q2 Merchant rollup",ch:25.48,exa:43.15,ch95:32.10,exa95:48.39,match:true},
+      {name:"Q3 Five-table fraud join",ch:54.36,exa:438.74,ch95:63.13,exa95:476.27,match:true},
+      {name:"Q4 JSON extraction",ch:51.94,exa:227.99,ch95:62.58,exa95:359.59,match:true}
+    ]
+  }
+};
+const fmt = n => Number(n).toLocaleString("en-US");
+const ms = n => `${Number(n).toFixed(2)} ms`;
+function render(scale){
+  const d=data[scale];
+  document.querySelectorAll(".toolbar button").forEach(b=>b.setAttribute("aria-pressed",String(b.id===(scale==="1m"?"scale1m":"scale100k"))));
+  document.getElementById("events").textContent=fmt(d.events);
+  document.getElementById("chIngest").textContent=fmt(d.chIngest);
+  document.getElementById("exaIngest").textContent=fmt(d.exaIngest);
+  const lead=Math.max(d.chIngest,d.exaIngest)/Math.min(d.chIngest,d.exaIngest);
+  document.getElementById("ingestLead").textContent=`${lead.toFixed(2)}×`;
+  document.getElementById("ingestWinner").textContent=`${d.chIngest>d.exaIngest?"ClickHouse":"Exasol"} faster by throughput`;
+  const max=Math.max(...d.queries.flatMap(q=>[q.ch,q.exa]));
+  document.getElementById("bars").innerHTML=d.queries.map(q=>`<div class="barrow"><div class="barlabel">${q.name}<br><span>${ms(Math.min(q.ch,q.exa))} – ${ms(Math.max(q.ch,q.exa))}</span></div><div class="pairbars"><div class="track" title="ClickHouse ${ms(q.ch)}"><div class="segment ch" style="width:${100*q.ch/max}%"></div></div><div class="track" title="Exasol ${ms(q.exa)}"><div class="segment exa" style="width:${100*q.exa/max}%"></div></div></div></div>`).join("");
+  document.getElementById("queryRows").innerHTML=d.queries.map(q=>{const win=q.ch<q.exa?"ClickHouse":"Exasol";return `<tr><td>${q.name}</td><td class="num">${ms(q.ch)}</td><td class="num">${ms(q.exa)}</td><td class="num">${ms(q.ch95)}</td><td class="num">${ms(q.exa95)}</td><td class="winner">${win}</td><td>${q.match?"Yes":"No"}</td></tr>`}).join("");
+}
+document.getElementById("scale100k").addEventListener("click",()=>render("100k"));
+document.getElementById("scale1m").addEventListener("click",()=>render("1m"));
+render("1m");
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "run_type": "live",
+  "model_type": "XGBoostClassifier",
+  "requested_training_rows": 1000,
+  "actual_training_rows": 1047,
+  "model_training_seconds": 0.027,
+  "scored_rows": 100,
+  "warmups": 1,
+  "iterations": 2,
+  "artifact": "xgboost_fraud_model.json",
+  "artifact_sha256": "7f74bbc5401d91efebda768d9d03b5efee1715957697ab9a954f3796a367638a",
+  "xgboost_version": "3.4.1",
+  "clickhouse_sql_udf": {
+    "p50_ms": 12.958,
+    "p95_ms": 10.488,
+    "predictions_per_second": 7717.5
+  },
+  "exasol_python_udf": {
+    "p50_ms": 65.959,
+    "p95_ms": 65.928,
+    "predictions_per_second": 1516.1
+  },
+  "correctness": {
+    "row_counts_match": true,
+    "event_ids_match": true,
+    "max_abs_engine_error": 0.006829377248022239,
+    "max_abs_clickhouse_vs_model": 7.54923321633072e-08,
+    "max_abs_exasol_vs_model": 0.006829333356060396,
+    "max_abs_tree_dump_vs_xgboost": 7.549235403470078e-08,
+    "scores_within_1e_6": false
+  },
+  "caveat": "Model is trained deterministically from generated synthetic labels for this run. SQL and Python UDFs evaluate the exported XGBoost tree dump; client-observed timing includes result transfer. Single-node local systems only."
+}

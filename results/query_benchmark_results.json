@@ -1,0 +1,26 @@
+{
+  "Q1_card_velocity": {
+    "clickhouse_p50_ms": 3.77,
+    "exasol_p50_ms": 8.68,
+    "winner": "ClickHouse",
+    "margin": "2.30x"
+  },
+  "Q2_merchant_rollup": {
+    "clickhouse_p50_ms": 49.08,
+    "exasol_p50_ms": 42.46,
+    "winner": "Exasol",
+    "margin": "1.16x"
+  },
+  "Q3_fraud_ring_5table_join": {
+    "clickhouse_p50_ms": 125.02,
+    "exasol_p50_ms": 44.62,
+    "winner": "Exasol",
+    "margin": "2.80x"
+  },
+  "Q4_json_extraction": {
+    "clickhouse_p50_ms": 40.02,
+    "exasol_p50_ms": 70.01,
+    "winner": "ClickHouse",
+    "margin": "1.75x"
+  }
+}

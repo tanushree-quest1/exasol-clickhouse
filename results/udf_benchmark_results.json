@@ -1,0 +1,42 @@
+{
+  "run_type": "live",
+  "scorer": "LogisticFraudScorer",
+  "artifact": {
+    "path": "udf/model_artifact/fraud_model.json",
+    "version": "1.0.0",
+    "sha256": "f3b497572c7cc9d3c85aea064fe42bfeb9f18295acbf872616848cf4f2354cc6",
+    "feature_names": [
+      "amount",
+      "mcc",
+      "hour_of_day",
+      "is_cnp",
+      "is_contactless"
+    ]
+  },
+  "requested_rows": 100,
+  "actual_rows": {
+    "clickhouse": 100,
+    "exasol": 100
+  },
+  "warmups_per_engine": 1,
+  "iterations": 2,
+  "clickhouse_sql_udf": {
+    "p50_ms": 10.806,
+    "p95_ms": 14.573,
+    "predictions_per_second": 9254.37
+  },
+  "exasol_python_udf": {
+    "p50_ms": 64.869,
+    "p95_ms": 68.891,
+    "predictions_per_second": 1541.57
+  },
+  "correctness": {
+    "row_count_match": true,
+    "event_ids_match": true,
+    "max_abs_engine_score_error": 0.06740000000000007,
+    "max_abs_clickhouse_vs_artifact_error": 0.0,
+    "max_abs_exasol_vs_artifact_error": 0.0,
+    "scores_match_artifact": true
+  },
+  "caveat": "This repository artifact is LogisticFraudScorer, not XGBoost. The same artifact weights and scoring behavior are applied in ClickHouse SQL and Exasol Python UDFs. Client-observed latency includes query and result transfer."
+}
