@@ -1,0 +1,48 @@
+# PayLens Configuration: Exasol vs ClickHouse Benchmark
+
+scale:
+  tier: "test" # "test" (100k rows), "1x" (50M rows), "10x" (500M rows)
+  test_rows:
+    auth_events: 100000
+    cards: 10000
+    merchants: 1000
+    accounts: 10000
+    devices: 5000
+  production_1x_rows:
+    auth_events: 50000000
+    cards: 5000000
+    merchants: 1000000
+    accounts: 5000000
+    devices: 2000000
+
+clickhouse:
+  host: "localhost"
+  port: 8123 # HTTP interface
+  native_port: 9000
+  user: "default"
+  password: ""
+  database: "paylens"
+  secure: false
+
+exasol:
+  dsn: "localhost:8563"
+  user: "sys"
+  password: "" # Set EXASOL_PASSWORD in the environment; do not store secrets here.
+  schema: "PAYLENS"
+  allow_local_self_signed: true # Exasol Personal local deployment only; ignored for remote DSNs.
+  autocommit: true
+
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topics:
+    auth_events: "paylens.auth_events"
+    ledger_updates: "paylens.ledger_updates"
+    fraud_alerts: "paylens.fraud_alerts"
+  consumer_group_ch: "paylens-clickhouse-group"
+  consumer_group_exasol: "paylens-exasol-group"
+
+benchmark:
+  iterations: 5
+  warmup_runs: 2
+  concurrency_levels: [1, 8, 32, 64]
+  batch_sizes: [1000, 10000, 50000]
